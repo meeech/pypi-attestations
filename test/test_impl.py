@@ -677,12 +677,47 @@ class TestPublisher:
         assert gl.environment == "publish"
         assert TypeAdapter(impl.Publisher).validate_json(json.dumps(gl_raw)) == gl
 
+        cci_raw = {
+            "kind": "CircleCI",
+            "organization_id": "12345678-1234-1234-1234-123456789abc",
+            "project_id": "abcdef01-2345-6789-abcd-ef0123456789",
+        }
+        cci: impl.Publisher = TypeAdapter(impl.Publisher).validate_python(cci_raw)
+        assert isinstance(cci, impl.CircleCIPublisher)
+        assert cci.organization_id == "12345678-1234-1234-1234-123456789abc"
+        assert cci.project_id == "abcdef01-2345-6789-abcd-ef0123456789"
+        assert cci.repository is None
+        assert TypeAdapter(impl.Publisher).validate_json(json.dumps(cci_raw)) == cci
+
+        cci_with_repo_raw = {
+            "kind": "CircleCI",
+            "organization_id": "12345678-1234-1234-1234-123456789abc",
+            "project_id": "abcdef01-2345-6789-abcd-ef0123456789",
+            "repository": "github.com/myorg/myrepo",
+        }
+        cci_with_repo: impl.Publisher = TypeAdapter(impl.Publisher).validate_python(
+            cci_with_repo_raw
+        )
+        assert isinstance(cci_with_repo, impl.CircleCIPublisher)
+        assert cci_with_repo.repository == "github.com/myorg/myrepo"
+        assert (
+            TypeAdapter(impl.Publisher).validate_json(json.dumps(cci_with_repo_raw))
+            == cci_with_repo
+        )
+
     def test_wrong_kind(self) -> None:
         with pytest.raises(ValueError, match="Input should be 'GitHub'"):
             impl.GitHubPublisher(kind="wrong", repository="foo/bar", workflow="publish.yml")
 
         with pytest.raises(ValueError, match="Input should be 'GitLab'"):
             impl.GitLabPublisher(kind="GitHub", repository="foo/bar")
+
+        with pytest.raises(ValueError, match="Input should be 'CircleCI'"):
+            impl.CircleCIPublisher(
+                kind="GitHub",
+                organization_id="12345678-1234-1234-1234-123456789abc",
+                project_id="abcdef01-2345-6789-abcd-ef0123456789",
+            )
 
 
 class TestProvenance:

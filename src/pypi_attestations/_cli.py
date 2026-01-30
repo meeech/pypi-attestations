@@ -28,6 +28,7 @@ from sigstore.verify import policy
 
 from pypi_attestations import Attestation, AttestationError, VerificationError, __version__
 from pypi_attestations._impl import (
+    CircleCIPublisher,
     ConversionError,
     Distribution,
     GitHubPublisher,
@@ -597,6 +598,8 @@ def _verify_pypi(args: argparse.Namespace) -> None:
                         f"Verification failed: provenance was signed by service account "
                         f'"{publisher.email}", expected "{args.gcp_service_account}"'
                     )
+            elif isinstance(publisher, CircleCIPublisher):
+                pass
             else:
                 if not args.repository:
                     _die(

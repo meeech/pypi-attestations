@@ -660,7 +660,86 @@ class GooglePublisher(_PublisherBase):
         return policy.Identity(identity=self.email, issuer="https://accounts.google.com")
 
 
-_Publisher = GitHubPublisher | GitLabPublisher | GooglePublisher
+class _CircleCITrustedPublisherPolicy:
+    """A custom sigstore-python policy for verifying against a CircleCI-based Trusted Publisher."""
+
+    def __init__(
+        self,
+        organization_id: str,
+        project_id: str,
+        repository: str | None = None,
+    ) -> None:
+        self._organization_id = organization_id
+        self._project_id = project_id
+        self._repository = repository
+
+        # Build subpolicies: the issuer must be CircleCI with the expected organization.
+        subpolicies: list[policy.VerificationPolicy] = [
+            policy.OIDCIssuerV2(f"https://oidc.circleci.com/org/{self._organization_id}")
+        ]
+
+        # If a repository is specified, verify the source repository URI matches.
+        # CircleCI's source-repository-uri comes from oidc.circleci.com/vcs-origin
+        # and looks like "github.com/org/repo" (without https://).
+        if self._repository is not None:
+            subpolicies.append(policy.OIDCSourceRepositoryURI(self._repository))
+
+        self._subpolicy = policy.AllOf(subpolicies)
+
+    def verify(self, cert: Certificate) -> None:
+        """Verify the certificate against the Trusted Publisher identity."""
+        self._subpolicy.verify(cert)
+
+        # Extract and verify the Build Signer URI.
+        # For CircleCI, the Build Signer URI looks like:
+        #     https://circleci.com/api/v2/projects/<project-id>/pipeline-definitions/<pipeline-definition-id>
+        # We verify that the project-id in the URI matches the expected project.
+        build_signer_uri = cert.extensions.get_extension_for_oid(
+            policy._OIDC_BUILD_SIGNER_URI_OID  # noqa: SLF001
+        )
+        raw_build_signer_uri = _der_decode_utf8string(build_signer_uri.value.public_bytes())
+
+        # The Build Signer URI must start with the expected project path
+        expected_prefix = f"https://circleci.com/api/v2/projects/{self._project_id}/pipeline-definitions/"
+        if not raw_build_signer_uri.startswith(expected_prefix):
+            raise sigstore.errors.VerificationError(
+                f"Certificate's Build Signer URI ({raw_build_signer_uri}) does not match expected "
+                f"Trusted Publisher (project {self._project_id} in org {self._organization_id})"
+            )
+
+
+class CircleCIPublisher(_PublisherBase):
+    """A CircleCI-based Trusted Publisher."""
+
+    kind: Literal["CircleCI"] = "CircleCI"
+
+    organization_id: str
+    """
+    The CircleCI organization ID (UUID) that the publishing project belongs to.
+    This is encoded in the OIDC issuer as https://oidc.circleci.com/org/<organization_id>.
+    """
+
+    project_id: str
+    """
+    The CircleCI project ID (UUID) that performed the publishing action.
+    This is encoded in the Build Signer URI certificate extension.
+    """
+
+    repository: str | None = None
+    """
+    The optional source repository URI that triggered the pipeline.
+    This comes from the oidc.circleci.com/vcs-origin claim and looks like
+    "github.com/org/repo" (without the https:// prefix).
+    Not present for pipelines triggered by custom webhooks.
+    """
+
+    def _as_policy(self) -> VerificationPolicy:
+        return _CircleCITrustedPublisherPolicy(
+            self.organization_id, self.project_id, self.repository
+        )
+
+
+_Publisher = GitHubPublisher | GitLabPublisher | GooglePublisher | CircleCIPublisher
 Publisher = Annotated[_Publisher, Field(discriminator="kind")]
 
 
