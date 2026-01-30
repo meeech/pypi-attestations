@@ -698,6 +698,20 @@ class _CircleCITrustedPublisherPolicy:
         """Verify the certificate against the Trusted Publisher identity."""
         self._subpolicy.verify(cert)
 
+        # Reject SSH rerun jobs - these are not trusted for publishing.
+        # When oidc.circleci.com/ssh-rerun is true, runner_environment is set to "ssh-rerun".
+        try:
+            runner_env = cert.extensions.get_extension_for_oid(
+                policy._OIDC_RUNNER_ENVIRONMENT_OID  # noqa: SLF001
+            )
+            raw_runner_env = _der_decode_utf8string(runner_env.value.public_bytes())
+            if raw_runner_env == "ssh-rerun":
+                raise sigstore.errors.VerificationError(
+                    "Certificate indicates SSH rerun job, which is not trusted for publishing"
+                )
+        except x509.ExtensionNotFound:
+            pass  # No runner environment extension is fine
+
         # Extract and verify the Build Signer URI.
         # For CircleCI, the Build Signer URI looks like:
         #     https://circleci.com/api/v2/projects/<project-id>/pipeline-definitions/<pipeline-definition-id>
