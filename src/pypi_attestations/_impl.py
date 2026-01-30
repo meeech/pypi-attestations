@@ -665,21 +665,19 @@ class _CircleCITrustedPublisherPolicy:
 
     def __init__(
         self,
-        organization_id: str,
         project_id: str,
         pipeline_definition_id: str,
         vcs_origin: str | None = None,
         vcs_ref: str | None = None,
     ) -> None:
-        self._organization_id = organization_id
         self._project_id = project_id
         self._pipeline_definition_id = pipeline_definition_id
         self._vcs_origin = vcs_origin
         self._vcs_ref = vcs_ref
 
-        # Build subpolicies: the issuer must be CircleCI with the expected organization.
+        # Build subpolicies: the issuer must be CircleCI.
         subpolicies: list[policy.VerificationPolicy] = [
-            policy.OIDCIssuerV2(f"https://oidc.circleci.com/org/{self._organization_id}")
+            policy.OIDCIssuerV2("https://oidc.circleci.com")
         ]
 
         # If vcs_origin is specified, verify the source repository URI matches.
@@ -725,12 +723,6 @@ class CircleCIPublisher(_PublisherBase):
 
     kind: Literal["CircleCI"] = "CircleCI"
 
-    organization_id: str
-    """
-    The CircleCI organization ID (UUID) that the publishing project belongs to.
-    This is encoded in the OIDC issuer as https://oidc.circleci.com/org/<organization_id>.
-    """
-
     project_id: str
     """
     The CircleCI project ID (UUID) that performed the publishing action.
@@ -760,7 +752,6 @@ class CircleCIPublisher(_PublisherBase):
 
     def _as_policy(self) -> VerificationPolicy:
         return _CircleCITrustedPublisherPolicy(
-            self.organization_id,
             self.project_id,
             self.pipeline_definition_id,
             self.vcs_origin,

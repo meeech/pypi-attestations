@@ -679,13 +679,11 @@ class TestPublisher:
 
         cci_raw = {
             "kind": "CircleCI",
-            "organization_id": "12345678-1234-1234-1234-123456789abc",
             "project_id": "abcdef01-2345-6789-abcd-ef0123456789",
             "pipeline_definition_id": "fedcba98-7654-3210-fedc-ba9876543210",
         }
         cci: impl.Publisher = TypeAdapter(impl.Publisher).validate_python(cci_raw)
         assert isinstance(cci, impl.CircleCIPublisher)
-        assert cci.organization_id == "12345678-1234-1234-1234-123456789abc"
         assert cci.project_id == "abcdef01-2345-6789-abcd-ef0123456789"
         assert cci.pipeline_definition_id == "fedcba98-7654-3210-fedc-ba9876543210"
         assert cci.vcs_origin is None
@@ -694,7 +692,6 @@ class TestPublisher:
 
         cci_full_raw = {
             "kind": "CircleCI",
-            "organization_id": "12345678-1234-1234-1234-123456789abc",
             "project_id": "abcdef01-2345-6789-abcd-ef0123456789",
             "pipeline_definition_id": "fedcba98-7654-3210-fedc-ba9876543210",
             "vcs_origin": "github.com/myorg/myrepo",
@@ -718,7 +715,6 @@ class TestPublisher:
         with pytest.raises(ValueError, match="Input should be 'CircleCI'"):
             impl.CircleCIPublisher(
                 kind="GitHub",
-                organization_id="12345678-1234-1234-1234-123456789abc",
                 project_id="abcdef01-2345-6789-abcd-ef0123456789",
                 pipeline_definition_id="fedcba98-7654-3210-fedc-ba9876543210",
             )
