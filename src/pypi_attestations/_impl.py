@@ -668,14 +668,12 @@ class _CircleCITrustedPublisherPolicy:
         organization_id: str,
         project_id: str,
         pipeline_definition_id: str,
-        context_id: str | None = None,
         vcs_origin: str | None = None,
         vcs_ref: str | None = None,
     ) -> None:
         self._organization_id = organization_id
         self._project_id = project_id
         self._pipeline_definition_id = pipeline_definition_id
-        self._context_id = context_id
         self._vcs_origin = vcs_origin
         self._vcs_ref = vcs_ref
 
@@ -744,12 +742,6 @@ class CircleCIPublisher(_PublisherBase):
     This uniquely identifies the specific pipeline definition allowed to publish.
     """
 
-    context_id: str | None = None
-    """
-    The optional CircleCI context ID (UUID) that must be used by the job.
-    This comes from the oidc.circleci.com/context-ids claim.
-    """
-
     vcs_origin: str | None = None
     """
     The optional source repository URI that triggered the pipeline.
@@ -771,7 +763,6 @@ class CircleCIPublisher(_PublisherBase):
             self.organization_id,
             self.project_id,
             self.pipeline_definition_id,
-            self.context_id,
             self.vcs_origin,
             self.vcs_ref,
         )
