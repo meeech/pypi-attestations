@@ -667,22 +667,34 @@ class _CircleCITrustedPublisherPolicy:
         self,
         organization_id: str,
         project_id: str,
-        repository: str | None = None,
+        pipeline_definition_id: str,
+        context_id: str | None = None,
+        vcs_origin: str | None = None,
+        vcs_ref: str | None = None,
     ) -> None:
         self._organization_id = organization_id
         self._project_id = project_id
-        self._repository = repository
+        self._pipeline_definition_id = pipeline_definition_id
+        self._context_id = context_id
+        self._vcs_origin = vcs_origin
+        self._vcs_ref = vcs_ref
 
         # Build subpolicies: the issuer must be CircleCI with the expected organization.
         subpolicies: list[policy.VerificationPolicy] = [
             policy.OIDCIssuerV2(f"https://oidc.circleci.com/org/{self._organization_id}")
         ]
 
-        # If a repository is specified, verify the source repository URI matches.
+        # If vcs_origin is specified, verify the source repository URI matches.
         # CircleCI's source-repository-uri comes from oidc.circleci.com/vcs-origin
         # and looks like "github.com/org/repo" (without https://).
-        if self._repository is not None:
-            subpolicies.append(policy.OIDCSourceRepositoryURI(self._repository))
+        if self._vcs_origin is not None:
+            subpolicies.append(policy.OIDCSourceRepositoryURI(self._vcs_origin))
+
+        # If vcs_ref is specified, verify the source repository ref matches.
+        # CircleCI's source-repository-ref comes from oidc.circleci.com/vcs-ref
+        # and looks like "refs/heads/main".
+        if self._vcs_ref is not None:
+            subpolicies.append(policy.OIDCSourceRepositoryRef(self._vcs_ref))
 
         self._subpolicy = policy.AllOf(subpolicies)
 
@@ -693,18 +705,20 @@ class _CircleCITrustedPublisherPolicy:
         # Extract and verify the Build Signer URI.
         # For CircleCI, the Build Signer URI looks like:
         #     https://circleci.com/api/v2/projects/<project-id>/pipeline-definitions/<pipeline-definition-id>
-        # We verify that the project-id in the URI matches the expected project.
+        # We verify that both the project-id and pipeline-definition-id match.
         build_signer_uri = cert.extensions.get_extension_for_oid(
             policy._OIDC_BUILD_SIGNER_URI_OID  # noqa: SLF001
         )
         raw_build_signer_uri = _der_decode_utf8string(build_signer_uri.value.public_bytes())
 
-        # The Build Signer URI must start with the expected project path
-        expected_prefix = f"https://circleci.com/api/v2/projects/{self._project_id}/pipeline-definitions/"
-        if not raw_build_signer_uri.startswith(expected_prefix):
+        expected_build_signer_uri = (
+            f"https://circleci.com/api/v2/projects/{self._project_id}/"
+            f"pipeline-definitions/{self._pipeline_definition_id}"
+        )
+        if raw_build_signer_uri != expected_build_signer_uri:
             raise sigstore.errors.VerificationError(
                 f"Certificate's Build Signer URI ({raw_build_signer_uri}) does not match expected "
-                f"Trusted Publisher (project {self._project_id} in org {self._organization_id})"
+                f"Trusted Publisher ({expected_build_signer_uri})"
             )
 
 
@@ -722,10 +736,21 @@ class CircleCIPublisher(_PublisherBase):
     project_id: str
     """
     The CircleCI project ID (UUID) that performed the publishing action.
-    This is encoded in the Build Signer URI certificate extension.
     """
 
-    repository: str | None = None
+    pipeline_definition_id: str
+    """
+    The CircleCI pipeline definition ID (UUID) that defines the pipeline configuration.
+    This uniquely identifies the specific pipeline definition allowed to publish.
+    """
+
+    context_id: str | None = None
+    """
+    The optional CircleCI context ID (UUID) that must be used by the job.
+    This comes from the oidc.circleci.com/context-ids claim.
+    """
+
+    vcs_origin: str | None = None
     """
     The optional source repository URI that triggered the pipeline.
     This comes from the oidc.circleci.com/vcs-origin claim and looks like
@@ -733,9 +758,22 @@ class CircleCIPublisher(_PublisherBase):
     Not present for pipelines triggered by custom webhooks.
     """
 
+    vcs_ref: str | None = None
+    """
+    The optional git ref that triggered the pipeline.
+    This comes from the oidc.circleci.com/vcs-ref claim and looks like
+    "refs/heads/main" or "refs/tags/v1.0.0".
+    Not present for pipelines triggered by custom webhooks.
+    """
+
     def _as_policy(self) -> VerificationPolicy:
         return _CircleCITrustedPublisherPolicy(
-            self.organization_id, self.project_id, self.repository
+            self.organization_id,
+            self.project_id,
+            self.pipeline_definition_id,
+            self.context_id,
+            self.vcs_origin,
+            self.vcs_ref,
         )
 
 

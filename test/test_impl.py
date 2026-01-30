@@ -681,28 +681,34 @@ class TestPublisher:
             "kind": "CircleCI",
             "organization_id": "12345678-1234-1234-1234-123456789abc",
             "project_id": "abcdef01-2345-6789-abcd-ef0123456789",
+            "pipeline_definition_id": "fedcba98-7654-3210-fedc-ba9876543210",
         }
         cci: impl.Publisher = TypeAdapter(impl.Publisher).validate_python(cci_raw)
         assert isinstance(cci, impl.CircleCIPublisher)
         assert cci.organization_id == "12345678-1234-1234-1234-123456789abc"
         assert cci.project_id == "abcdef01-2345-6789-abcd-ef0123456789"
-        assert cci.repository is None
+        assert cci.pipeline_definition_id == "fedcba98-7654-3210-fedc-ba9876543210"
+        assert cci.context_id is None
+        assert cci.vcs_origin is None
+        assert cci.vcs_ref is None
         assert TypeAdapter(impl.Publisher).validate_json(json.dumps(cci_raw)) == cci
 
-        cci_with_repo_raw = {
+        cci_full_raw = {
             "kind": "CircleCI",
             "organization_id": "12345678-1234-1234-1234-123456789abc",
             "project_id": "abcdef01-2345-6789-abcd-ef0123456789",
-            "repository": "github.com/myorg/myrepo",
+            "pipeline_definition_id": "fedcba98-7654-3210-fedc-ba9876543210",
+            "context_id": "11111111-2222-3333-4444-555555555555",
+            "vcs_origin": "github.com/myorg/myrepo",
+            "vcs_ref": "refs/heads/main",
         }
-        cci_with_repo: impl.Publisher = TypeAdapter(impl.Publisher).validate_python(
-            cci_with_repo_raw
-        )
-        assert isinstance(cci_with_repo, impl.CircleCIPublisher)
-        assert cci_with_repo.repository == "github.com/myorg/myrepo"
+        cci_full: impl.Publisher = TypeAdapter(impl.Publisher).validate_python(cci_full_raw)
+        assert isinstance(cci_full, impl.CircleCIPublisher)
+        assert cci_full.context_id == "11111111-2222-3333-4444-555555555555"
+        assert cci_full.vcs_origin == "github.com/myorg/myrepo"
+        assert cci_full.vcs_ref == "refs/heads/main"
         assert (
-            TypeAdapter(impl.Publisher).validate_json(json.dumps(cci_with_repo_raw))
-            == cci_with_repo
+            TypeAdapter(impl.Publisher).validate_json(json.dumps(cci_full_raw)) == cci_full
         )
 
     def test_wrong_kind(self) -> None:
@@ -717,6 +723,7 @@ class TestPublisher:
                 kind="GitHub",
                 organization_id="12345678-1234-1234-1234-123456789abc",
                 project_id="abcdef01-2345-6789-abcd-ef0123456789",
+                pipeline_definition_id="fedcba98-7654-3210-fedc-ba9876543210",
             )
 
 
