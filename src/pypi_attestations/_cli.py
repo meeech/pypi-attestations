@@ -167,6 +167,18 @@ def _parser() -> argparse.ArgumentParser:
     )
 
     verify_pypi_command.add_argument(
+        "--circleci-project-id",
+        type=str,
+        help="CircleCI project ID (UUID)",
+    )
+
+    verify_pypi_command.add_argument(
+        "--circleci-pipeline-definition-id",
+        type=str,
+        help="CircleCI pipeline definition ID (UUID)",
+    )
+
+    verify_pypi_command.add_argument(
         "--staging",
         action="store_true",
         default=False,
@@ -599,7 +611,27 @@ def _verify_pypi(args: argparse.Namespace) -> None:
                         f'"{publisher.email}", expected "{args.gcp_service_account}"'
                     )
             elif isinstance(publisher, CircleCIPublisher):
-                pass
+                if not args.circleci_project_id:
+                    _die(
+                        "Provenance signed by CircleCI, but no project ID provided; "
+                        "use '--circleci-project-id'"
+                    )
+                if not args.circleci_pipeline_definition_id:
+                    _die(
+                        "Provenance signed by CircleCI, but no pipeline definition ID provided; "
+                        "use '--circleci-pipeline-definition-id'"
+                    )
+                if publisher.project_id != args.circleci_project_id:
+                    _die(
+                        f"Verification failed: provenance was signed by CircleCI project "
+                        f'"{publisher.project_id}", expected "{args.circleci_project_id}"'
+                    )
+                if publisher.pipeline_definition_id != args.circleci_pipeline_definition_id:
+                    _die(
+                        f"Verification failed: provenance was signed by CircleCI pipeline "
+                        f'definition "{publisher.pipeline_definition_id}", expected '
+                        f'"{args.circleci_pipeline_definition_id}"'
+                    )
             else:
                 if not args.repository:
                     _die(
