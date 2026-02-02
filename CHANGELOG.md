@@ -9,9 +9,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [0.0.30]
 
-### Changed
+### Added
 
-- Signing in CircleCI
+- Support for CircleCI attestations ([#166](https://github.com/pypi/pypi-attestations/pull/166/)).
+  This is work aligned with adding CircleCI as a Trusted Publisher in pypi. ([#19349](https://github.com/pypi/warehouse/pull/19349))
 
 ## [0.0.29]
 
@@ -164,7 +165,7 @@ This is a corrective release for [0.0.18].
 - The `GitLabPublisher` policy now takes the workflow file path in order to
   verify attestations, rathen than assuming it will always be `gitlab-ci.yml`
   ([#71](https://github.com/pypi/pypi-attestations/pull/71)).
-- The `GitLabPublisher` now longer expects claims being passed during construction,
+- The `GitLabPublisher` no longer expects claims being passed during construction,
   rather the `ref` and `sha` claims are extracted from the certificate's extensions,
   similar to `GitHubPublisher`'s behavior
   ([#71](https://github.com/pypi/pypi-attestations/pull/71)).
