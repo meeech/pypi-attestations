@@ -701,9 +701,7 @@ class TestPublisher:
         assert isinstance(cci_full, impl.CircleCIPublisher)
         assert cci_full.vcs_origin == "github.com/myorg/myrepo"
         assert cci_full.vcs_ref == "refs/heads/main"
-        assert (
-            TypeAdapter(impl.Publisher).validate_json(json.dumps(cci_full_raw)) == cci_full
-        )
+        assert TypeAdapter(impl.Publisher).validate_json(json.dumps(cci_full_raw)) == cci_full
 
     def test_wrong_kind(self) -> None:
         with pytest.raises(ValueError, match="Input should be 'GitHub'"):
