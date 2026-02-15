@@ -53,6 +53,14 @@ gcb_artifact_path = _ASSETS / "gcb_attestation_test-0.0.0.tar.gz"
 gcb_provenance_path = _ASSETS / "gcb_attestation_test-0.0.0.tar.gz.provenance"
 gcb_service_account = "919436158236-compute@developer.gserviceaccount.com"
 
+# circleci assets
+cci_artifact_path = _ASSETS / "circleci_sign_publish_example-0.0.1.dev137-py3-none-any.whl"
+cci_provenance_path = (
+    _ASSETS / "circleci_sign_publish_example-0.0.1.dev137-py3-none-any.whl.provenance"
+)
+cci_project_id = "fdd9283f-e619-46af-8f9c-851f7d3e8b2b"
+cci_pipeline_definition_id = "8e4f8ab2-8d7c-4827-9f15-de076d6d647f"
+
 
 def run_main_with_command(cmd: list[str]) -> None:
     """Helper method to run the main function with a given command."""
@@ -994,6 +1002,109 @@ def test_verify_pypi_command_gcb_wrong_service_account(caplog: pytest.LogCapture
             ]
         )
     assert "Verification failed: provenance was signed by service account" in caplog.text
+
+
+def test_verify_pypi_command_circleci_no_project_id(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    with pytest.raises(SystemExit):
+        run_main_with_command(
+            [
+                "verify",
+                "pypi",
+                "--offline",
+                "--provenance-file",
+                cci_provenance_path.as_posix(),
+                cci_artifact_path.as_posix(),
+            ]
+        )
+    assert "Provenance signed by CircleCI, but no project ID provided" in caplog.text
+
+
+def test_verify_pypi_command_circleci_no_pipeline_definition_id(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    with pytest.raises(SystemExit):
+        run_main_with_command(
+            [
+                "verify",
+                "pypi",
+                "--offline",
+                "--circleci-project-id",
+                cci_project_id,
+                "--provenance-file",
+                cci_provenance_path.as_posix(),
+                cci_artifact_path.as_posix(),
+            ]
+        )
+    assert "Provenance signed by CircleCI, but no pipeline definition ID provided" in caplog.text
+
+
+def test_verify_pypi_command_circleci_wrong_project_id(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    with pytest.raises(SystemExit):
+        run_main_with_command(
+            [
+                "verify",
+                "pypi",
+                "--offline",
+                "--circleci-project-id",
+                "wrong-project",
+                "--circleci-pipeline-definition-id",
+                cci_pipeline_definition_id,
+                "--provenance-file",
+                cci_provenance_path.as_posix(),
+                cci_artifact_path.as_posix(),
+            ]
+        )
+    assert (
+        "Verification failed: provenance was signed by CircleCI project"
+        f' "{cci_project_id}", expected "wrong-project"' in caplog.text
+    )
+
+
+def test_verify_pypi_command_circleci_wrong_pipeline_definition_id(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    with pytest.raises(SystemExit):
+        run_main_with_command(
+            [
+                "verify",
+                "pypi",
+                "--offline",
+                "--circleci-project-id",
+                cci_project_id,
+                "--circleci-pipeline-definition-id",
+                "wrong-pipeline",
+                "--provenance-file",
+                cci_provenance_path.as_posix(),
+                cci_artifact_path.as_posix(),
+            ]
+        )
+    assert (
+        "Verification failed: provenance was signed by CircleCI pipeline"
+        f' definition "{cci_pipeline_definition_id}",'
+        ' expected "wrong-pipeline"' in caplog.text
+    )
+
+
+def test_verify_pypi_command_circleci_ok(caplog: pytest.LogCaptureFixture) -> None:
+    run_main_with_command(
+        [
+            "verify",
+            "pypi",
+            "--offline",
+            "--circleci-project-id",
+            cci_project_id,
+            "--circleci-pipeline-definition-id",
+            cci_pipeline_definition_id,
+            "--provenance-file",
+            cci_provenance_path.as_posix(),
+            cci_artifact_path.as_posix(),
+        ]
+    )
+    assert "OK: circleci_sign_publish_example-0.0.1.dev137-py3-none-any.whl" in caplog.text
 
 
 def test_verify_pypi_command_github_no_repository(caplog: pytest.LogCaptureFixture) -> None:
